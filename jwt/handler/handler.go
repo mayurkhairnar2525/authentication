@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
-	"log"
+	"github.com/go-playground/validator/v10"
 	"net/http"
 	"time"
 )
@@ -30,12 +30,22 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var credentials Credentials
 	err := json.NewDecoder(r.Body).Decode(&credentials)
 	if err != nil {
-		log.Fatal("err", err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	v := validator.New()
+	if err = v.Struct(credentials); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//if credentials.Username == "" || credentials.Password == ""{
+	//	w.WriteHeader(http.StatusUnauthorized)
+	//}
+
 	expectedPassword, ok := USers[credentials.Username]
 	if !ok || expectedPassword != credentials.Password {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	expirationTime := time.Now().Add(time.Minute * 5)
@@ -48,7 +58,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
-		log.Fatal("err", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	http.SetCookie(w,
@@ -62,7 +72,8 @@ func Login(w http.ResponseWriter, r *http.Request) {
 func Home(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("token")
 	if err != nil {
-		log.Fatal("err", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	tokenStr := cookie.Value
 	claims := &Claims{}
@@ -71,7 +82,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 			return jwtKey, nil
 		})
 	if err != nil {
-		log.Fatal("err", err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if !tkn.Valid {
@@ -82,7 +93,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Thanks for visiting Perennail systems website, %s", claims.Username)))
 }
 
-func RefreshToken (  w http.ResponseWriter,r *http.Request){
+func RefreshToken(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("token")
 	if err != nil {
 		if err == http.ErrNoCookie {
@@ -114,7 +125,7 @@ func RefreshToken (  w http.ResponseWriter,r *http.Request){
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-// Want to check it on real time that's why commented the code.
+	// Want to check it on real time that's why commented the code.
 
 	// if time.Unix(claims.ExpiresAt, 0).Sub(time.Now()) > 30*time.Second {
 	// 	w.WriteHeader(http.StatusBadRequest)
