@@ -9,7 +9,7 @@ import (
 func main() {
 	http.HandleFunc("/login", handler.Login)
 	http.HandleFunc("/home", handler.Home)
-
+http.HandleFunc("/refreshtoken",handler.RefreshToken)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }
